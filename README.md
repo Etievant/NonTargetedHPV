@@ -16,13 +16,13 @@ gee, ggplot2, grid, gtable, parallel and xtable.
 
 * Scripts `Simul_NonRandomized_Part1.R` and `Simul_NonRandomized_Part1.R` allow to replicate the simulations proposed in Section 3.3. 
 
-* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Section E.2.1.1. 
+* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Appendix E.2.1.1. 
 
-* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R` and `Simul_NonRandomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Section E.2.1.2.
+* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R` and `Simul_NonRandomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Appendix E.2.1.2.
 
-* Script `Simul_NonRandomized_LargeStrataW.R` allows to replicate the simulations proposed in Web Section E.2.2. 
+* Script `Simul_NonRandomized_LargeStrataW.R` allows to replicate the simulations proposed in Web Appendix E.2.2. 
 
-* Script `Simul_NonRandomized_LargeStrataW_SingleTargetedType.R` allows to replicate the simulations proposed in Web Section E.2.3. 
+* Script `Simul_NonRandomized_LargeStrataW_SingleTargetedType.R` allows to replicate the simulations proposed in Web Appendix E.2.3. 
 
 Each script also relies on functions provided in `EstimationFunctions.R` and certain parameters provided in `Parameters.RData`.
 

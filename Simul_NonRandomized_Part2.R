@@ -94,7 +94,6 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 5*10^3 # Breaking down the number of replications in 2 for the larger sample size
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
@@ -107,6 +106,10 @@ Onerun = function(p){
   a_high          = a[3]
   n               = PARAM[p, 6]
   part            = PARAM[p,7]
+  
+  if(part == 1){
+    set.seed(1234)
+  }else{set.seed(4321)}
   
   # Generation of the region of each of the n individuals.
   WWRegion = sample(wRegion, n, replace = TRUE, prob = PwRegion)        
@@ -163,7 +166,6 @@ Onerun = function(p){
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
-        print(meanY1_part1)
       }}}
   
   # So that P(Y2 = 1) = pY2, for each non-targeted type
@@ -336,7 +338,7 @@ Onerun = function(p){
 }
 
 P = nrow(PARAM)
-resultat = mclapply(1:P, Onerun, mc.cores = 9)
+resultat = mclapply(1:P, Onerun, mc.cores = 18)
 
 # Combining the simulations results from OneRun_NonRandomized_Part1.R and OneRun_NonRandomized_Part2.R
 P_Y1  = rbind(c(0.14, 0.07), c(0.05, 0.05), c(0.032, 0.015))   
@@ -397,7 +399,8 @@ library(xtable)
 # with more readable facets names
 RECAP$pY1 = factor(RECAP$pY1, labels = c("Low", "Medium", "High"))
 RECAP$A = factor(RECAP$A, labels = c("Small", "Medium", "Large"))
-plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot() + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A)# + scale_y_continuous(sec.axis = sec_axis(~ . , name = "Risk of infections with targeted types 16 and 18", breaks = NULL, labels = NULL)) # facet_grid(pY1~A, labeller = label_parsed)
+RECAP$Approach = factor(RECAP$Approach,levels(RECAP$Approach)[c(3,1,2,4)])
+plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot(coef = NULL) + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A, labeller = label_parsed, scales = "free_y")
 
 labelT = "Variance of the unmeasured confounder A"
 labelR = "Risk of infections with targeted types 16 and 18"
@@ -474,7 +477,7 @@ for(i in 1:nrow(PARAM)){
   eff_MH_JointNC    = MSE.MH / MSE.JointNC
   eff_MH_JointReg   = MSE.MH / MSE.JointReg
   
-  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.NaiveJoint = mean.JointNC - beta_1,  bias.JointCov = mean.JointReg - beta_1, empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.jointCov = sd.JointReg, sandwich_sd.jointCov = sandwich_sd.JointReg,  CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.NaiveJoint = cov.JointNC,  CIcov.JointCov = cov.JointReg, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
+  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.JointNC = mean.JointNC - beta_1,  bias.JointReg = mean.JointReg - beta_1, empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.JointReg = sd.JointReg, sandwich_sd.JointReg = sandwich_sd.JointReg,  CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.JointNC = cov.JointNC,  CIcov.JointReg = cov.JointReg, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
 }
 
 Eff = as.data.frame(Eff)
@@ -487,7 +490,4 @@ save(Eff, file = myfile)
 Eff[ColNames] = round(Eff[ColNames], digits = 3)
 Eff = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
 write.csv(Eff, file = paste0("Eff_NonRandomized-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
-
-
-
 

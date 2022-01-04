@@ -52,7 +52,7 @@ l               = length(pY2)
 # Treatment effect on each of the HPV types
 beta_1.16       = - 0.73 # Effect on Y1^(16). Value taken from the Costa Rica Vaccine Trial data
 beta_1.18       = - 0.86
-beta_1          = c(beta_1.16, beta_1.18) # We will only consider infection with HPV type 16 as primary outcome
+beta_1          = c(beta_1.16) # We will only consider infection with HPV type 16 as primary outcome
 beta_2          = 0 # We assume that the vaccine does not have an effect on HPV viruses that are not targeted by the vaccine
 
 # W = (WAge, WRegion)
@@ -90,10 +90,10 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 10^4
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
+  set.seed(1234)
   
   # Considered scenario
   pY1             = PARAM[p, 1:2]
@@ -319,7 +319,8 @@ library(xtable)
 # with more readable facets names
 RECAP$pY1 = factor(RECAP$pY1, labels = c("Low", "Medium", "High"))
 RECAP$A = factor(RECAP$A, labels = c("Small", "Medium", "Large"))
-plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot() + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]) ))) + facet_grid(pY1~A)# + scale_y_continuous(sec.axis = sec_axis(~ . , name = "Risk of infections with targeted types 16 and 18", breaks = NULL, labels = NULL)) # facet_grid(pY1~A, labeller = label_parsed)
+RECAP$Approach = factor(RECAP$Approach,levels(RECAP$Approach)[c(3,1,5,2,4)])
+plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot(coef = NULL) + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]) ))) + facet_grid(pY1~A, labeller = label_parsed, scales = "free_y") + scale_color_manual(values=c("#F8766D", "#7CAE00", "#FF65AE", "#00BFC4", "#C77CFF"))
 
 labelT = "Variance of the unmeasured confounder A"
 labelR = "Risk of infection with targeted type 16"
@@ -402,7 +403,7 @@ for(i in 1:nrow(PARAM)){
   eff_MH_JointReg   = MSE.MH / MSE.JointReg
   eff_MH_SSJoint   = MSE.MH / MSE.SSJoint
   
-  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.NaiveJoint = mean.JointNC - beta_1,  bias.JointCov = mean.JointReg - beta_1, bias.SSJoint = mean.SSJoint - beta_1,  empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.jointCov = sd.JointReg, sandwich_sd.jointCov = sandwich_sd.JointReg,  empir_sd.SSJoint = sd.SSJoint, sandwich_sd.SSJoint = sandwich_sd.SSJoint, CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.NaiveJoint = cov.JointNC,  CIcov.JointCov = cov.JointReg,  CIcov.SSJoint = cov.SSJoint, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1Y2s[1] ) )
+  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.JointNC = mean.JointNC - beta_1,  bias.JointReg = mean.JointReg - beta_1, bias.SSJoint = mean.SSJoint - beta_1,  empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.JointReg = sd.JointReg, sandwich_sd.JointReg = sandwich_sd.JointReg,  empir_sd.SSJoint = sd.SSJoint, sandwich_sd.SSJoint = sandwich_sd.SSJoint, CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.JointNC = cov.JointNC,  CIcov.JointReg = cov.JointReg,  CIcov.SSJoint = cov.SSJoint, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1Y2s[1] ) )
 }
 
 Eff = as.data.frame(Eff)
@@ -414,8 +415,5 @@ save(Eff, file = myfile)
 Eff[ColNames] = round(Eff[ColNames], digits = 3)
 Eff = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
 write.csv(Eff, file = paste0("Eff_NonRandomized_LargeStrataW_SingleTargetedType-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
-
-
-
 
 

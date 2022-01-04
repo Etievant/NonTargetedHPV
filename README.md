@@ -14,9 +14,9 @@ gee, ggplot2, grid, gtable, parallel and xtable.
 
 * Scripts `Simul_NonRandomized_Part1.R` and `Simul_NonRandomized_Part1.R` replicate the simulations proposed in Section 3.3. 
 
-* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffect` `Y2_Part2.R` replicate the simulations proposed in Web Section E.3.1.1. 
+* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffectY2_Part2.R` and `Simul_Randomized_TreatmentEffectY2_Part3.R` replicate the simulations proposed in Web Section E.3.1.1. 
 
-* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R` and `Simul_NonRandomized_Treatment` `EffectY2_Part2.R` replicate the simulations proposed in Web Section E.3.1.2.
+* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R`, `Simul_NonRandomized_TreatmentEffectY2_Part2.R` and `Simul_NonRandomized_TreatmentEffectY2_Part3.R` replicate the simulations proposed in Web Section E.3.1.2.
 
 * Script `Simul_NonRandomized_LargeStrataW.R` replicates the simulations proposed in Web Section E.3.2. 
 
@@ -31,7 +31,7 @@ Each script relies on functions provided in `EstimationFunctions.R` and certain 
 
 * Open and run the whole script(s).
 
-* The results of the simulations are saved in figures and tables. For example, when running script `Simul_Randomized.R`, file Comparison_Randomized-beta1-0.73-0.86.pdf and table Eff_Randomized-beta1-0.73-0.86.csv will give the same results as displayed in Figure 2 and Table 2 of Section 3.2.
+* The results of the simulations are saved in figures and tables. For example, when running script `Simul_Randomized.R`, file Eff_Randomized-beta1-0.73-0.86.csv will give the same results as displayed in Table 2 of Section 3.2.
 
 
 ### Functions provided in `EstimationFunctions.R`

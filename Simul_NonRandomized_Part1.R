@@ -92,10 +92,10 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 10^4
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
+  set.seed(1234)
   
   # Considered scenario
   pY1             = PARAM[p, 1:2]
@@ -333,7 +333,4 @@ Onerun = function(p){
 
 P = nrow(PARAM)
 resultat = mclapply(1:P, Onerun, mc.cores = 18)
-
-
-
 

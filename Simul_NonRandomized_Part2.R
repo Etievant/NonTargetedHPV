@@ -1,5 +1,5 @@
 ## Implementation of the simulation for the non-randomized setting (simulation of Section 3.3).
-# Part 2, for n = 50,000 and 10,000
+# Part 2, for n = 50,000
 # Code for n = 5,000 and 10,000 is given in Simul_NonRandomized_Part1.R
 
 # We assume that treatment has not been randomized.

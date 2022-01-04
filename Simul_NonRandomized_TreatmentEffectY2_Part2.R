@@ -1,7 +1,7 @@
-## Implementation of the simulation for the non-randomized setting when the assumption of no treatment effect on the non-targeted types is violated (simulation of WebSection E.2.1.2).
+## Implementation of the simulation for the randomized setting when the assumption of no treatment effect on the non-targeted types is violated (simulation of WebSection E.3.1.1).
 # We only consider n = 5,000 and 10,000.
-# Part 1, for beta2j = - nu.
-# Code for beta2j = nu is given in Simul_NonRandomized_TreatmentEffectY2_Part1.R
+# Part 2, for beta2j = nu_2.
+# Code for beta2j = nu_1 and nu_3 are given in Simul_Randomized_TreatmentEffectY2_Part1_revision.R and Simul_Randomized_TreatmentEffectY2_Part3_revision.R
 
 ## Variables:
 # Y1^(k): infection with HPV type k, targeted by the vaccine. We have Y1i^(k) = 1 if the ith person is infected with this type, and 0 otherwise.
@@ -9,17 +9,14 @@
 # Y2^(j): infection with HPV type j, not targeted by the vaccine. We have Y2i^(j) = 1 if the ith person is infected with this a type, and 0 otherwise.
 # Y2s = sum_j Y2^(j): categorical variable indicating the total number of infections by HPV types not targeted by the vaccine. This is the secondary outcome we consider.
 # T: treatment, that is HPV vaccination. We have Ti = 1 if the ith person has been vaccinated, and 0 otherwise.
-# A: unobserved confounder e.g. sexual activity.
-# W: observed confounder e.g. age and geographical region.
+# A: covariate e.g. sexual activity.
+# W: covariate e.g. age and geographical region.
 
 ## Comments:
-# We assume that treatment has not been randomized.
-# We assume that some confounders for the relationship between treatment and primary outcome are observed.
-# We assume that other confounders have not been observed.
+# We assume that treatment has been randomized.
 # We assume that the vaccine actually effects the non targeted HPV types.
 # We consider 20 HPV types that are not targeted by the vaccine.
-# The objective is to assess the performance of our proposed approaches (Joint-Reg, Joint-MH), compared to more naive approaches (e.g MH), under violation of the assumption 
-# of no effect of the vaccine on the non targeted HPV types.
+# The objective is to assess the performance of of method Aug, compared to UnAug, under violation of the assumption of no effect of the vaccine on the non targeted HPV types.
 
 source("EstimationFunctions.R")
 load("Parameters.RData") # file with certain of the fixed parameters
@@ -55,7 +52,8 @@ l               = length(pY2)
 beta_1.16       = - 0.73 # Effect on Y1^(16). Value taken from the Costa Rica Vaccine Trial data
 beta_1.18       = - 0.86 # Effect on Y1^(18).
 beta_1          = c(beta_1.16, beta_1.18)
-beta_2          = - c(0.01, -0.05, -0.32, -0.17,  0.05,  0.07,  0.15,  0.09,  0.19,  0.08, -0.06,  0.12, -0.03, -0.07, -0.16,  0.00, -0.02, -0.18,  0.04, -0.12) # The beta2j, equal to - nu. We assume that the vaccine has an effect on HPV viruses that are not targeted by the vaccine.
+beta_2          = c(0.17, -0.30, -0.70, -0.36,  0.17,  0.29,  0.50,  0.28,  0.36,  0.17, -0.15, 0.24, -0.17, -0.19, -0.31, -0.17, -0.14, -0.35, 0.19, -0.25) # We assume that the vaccine has an effect on HPV viruses that are not targeted by the vaccine.
+# The beta2j are taken from the CVT (with incident + prevalent infections); we used the CIs bounds on each non-targeted types that are the farthest from 0.
 
 # W = (WAge, WRegion)
 # We consider 13 age groups for WAge
@@ -93,11 +91,11 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 10^4
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
   
+  set.seed(1234)
   # Considered scenario
   pY1             = PARAM[p, 1:2]
   a               = PARAM[p, 3:5]
@@ -106,10 +104,10 @@ Onerun = function(p){
   a_high          = a[3]
   n               = PARAM[p, 6]
   
-  # Generation of the region of each of the n individuals.
+  # Generation of WRegion of each of the n individuals.
   WWRegion = sample(wRegion, n, replace = TRUE, prob = PwRegion)        
   
-  # Generation of the age of each of the n individuals.
+  # Generation of WAge of each of the n individuals.
   WWAge = rep(NA, n)
   for(i in 1:length(wRegion)){
     WWAge[which(WWRegion == wRegion[i])] = sample(wAge, sum(WWRegion == wRegion[i]), replace = TRUE, prob = PwAge[i,])
@@ -136,27 +134,12 @@ Onerun = function(p){
         varA = varA + a[p]^2 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i]
       }}}
   
-  # So that P(T = 1) = 0.5
-  alpha_T = - 1 / 18
-  beta_T = 1.5
-  gamma_T = 1
-  delta_T = -0.91
-  meanT = 0
-  for(i in 1:length(wRegion)){
-    for(j in 1:length(wAge)){
-      for(p in 1:length(a)){
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i]
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i]
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i]
-      }}}
-  
   # So that P(Y1 = 1) = pY1, for each targeted type
   meanY1_part1 = 0
   for(i in 1:length(wRegion)){
     for(j in 1:length(wAge)){
       for(p in 1:length(a)){
-        
-        pt = 1 / 2 / meanT * exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]))
+        pt = 1 / 2
         
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
@@ -184,8 +167,7 @@ Onerun = function(p){
   for(i in 1:length(wRegion)){
     for(j in 1:length(wAge)){
       for(p in 1:length(a)){
-        
-        pt = 1 / 2 / meanT * exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]))
+        pt = 1 / 2
         
         meanY1c = meanY1c - exp(sum(mu_1)) * exp(sum(wAge[j] %*% t(q_WAge)) + sum(t(q_WRegion[i,]))) * a[p]^2 * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * (exp(sum(beta_1)) * pt + 1 - pt )
         meanY1c = meanY1c - exp(sum(mu_1)) * exp(sum(wAge[j] %*% t(q_WAge)) + sum(t(q_WRegion[i,]))) * a[p]^2 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * (exp(sum(beta_1)) * pt + 1 - pt )
@@ -203,7 +185,7 @@ Onerun = function(p){
   for(i in 1:length(wRegion)){
     for(j in 1:length(wAge)){
       for(p in 1:length(a)){
-        for(t in 0:1){
+        for(t in 1:0){
           covY2 = covY2 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion)) * a[p]^2 * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i]  * ((1 - pt) * (1 - t) + pt * t)
           covY2 = covY2 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion)) * a[p]^2 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
           covY2 = covY2 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion)) * a[p]^2 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
@@ -218,17 +200,20 @@ Onerun = function(p){
       for(p in 1:length(a)){
         for(t in 0:1){
           
-          pt = 1 / 2 / meanT * exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]))
+          pt = 1 / 2
           
-          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) ) * a[p]^2 * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
-          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) ) * a[p]^2 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
-          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) ) * a[p]^2 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
+          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^2 * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
+          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^2 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
+          covY1cY2s_part1 = covY1cY2s_part1 + t(exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) %*% (exp(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^2 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
           
           covY1cY2s_part2 = covY1cY2s_part2 - (exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) * exp(sum(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^3 * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
           covY1cY2s_part2 = covY1cY2s_part2 - (exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) * exp(sum(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^3 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
           covY1cY2s_part2 = covY1cY2s_part2 - (exp(mu_2 + t %*% t(beta_2) + wAge[j] %*% t(s_WAge) + wRegion[i] %*% t(s_WRegion))) * exp(sum(mu_1 + t %*% t(beta_1) + wAge[j] %*% t(q_WAge) + t(q_WRegion[i,]))) * a[p]^3 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * ((1 - pt) * (1 - t) + pt * t)
         }}}}
   covY1cY2s = sum(covY1cY2s_part1) + sum(covY1cY2s_part2) - meanY1c * meanY2s # cov(Y1c, Y2s)
+  
+  # Correlation between primary and secondary outcomes
+  corrY1cY2s = covY1cY2s / sqrt(varY1c * varY2s)
   
   # Correlation between primary and secondary outcomes
   corrY1cY2s = covY1cY2s / sqrt(varY1c * varY2s)
@@ -292,7 +277,7 @@ Onerun = function(p){
         A[which((WRegion == wRegion[i])&(WAge == wAge[j]))] = sample(c(a_low, a_medium, a_high), size = sum((WRegion == wRegion[i])&(WAge == wAge[j])), replace = TRUE, prob = c(Palow[i,j], Pamedium[i,j], Pahigh[i,j]))
       }}
     
-    T = rbinom(n, size = 1, prob = 1 / 2 / meanT * exp(delta_T + alpha_T * WAge + beta_T * WRegion + gamma_T * A) / (1 + exp(delta_T + alpha_T * WAge + beta_T * WRegion + gamma_T * A)))
+    T = rbinom(n, size = 1, prob = 1 / 2)
     
     WRegion_Y1 = 0
     for(i in 1:length(wRegion)){
@@ -313,43 +298,55 @@ Onerun = function(p){
     
     ## Estimation of the parameters
     
-    est.jointReg    = JointReg(Y1 = Y1c, Y2 = Y2s, T = T, Wcont = WAge, Wcat = WRegion) # Estimation using the joint approach, when the observed covariates are included in the estimating equations.
-    est.jointNC     = JointNC(Y1 = Y1c, Y2 = Y2s, T = T) # Estimation using the joint approach, when the observed covariates are neglected.
-    est.jointMH     = JointStratificationMH(Y1c, Y2s, T = T, W = W) # Estimation of the treatment effect with the joint standardized approach with M-H weights.
-    est.MH          = StratificationMH(Y1 = Y1c, T = T, W = W) # Estimation of the treatment effect with the usual standardization, using MH weights. Observed covariates are used, but not the non-targeted HPV types.
+    # Method Aug_W (Aug with observed covariates only, as proposed by Zhang, Tsiatis and Davidian, 2008)
+    est.Aug_W = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(cbind(WAge, WRegion)))
+    CI.Aug_W = cbind(est.Aug_W$beta_1.hat - est.Aug_W$se.beta_1.hat * qnorm(0.975), est.Aug_W$beta_1.hat + est.Aug_W$se.beta_1.hat * qnorm(0.975))
+    Aug_W = cbind("Aug_W", est.Aug_W$beta_1.hat, est.Aug_W$se.beta_1.hat, CI.Aug_W)
     
-    jointMH         = cbind("JointMH", est.jointMH$beta_1.hat, est.jointMH$se.beta_1.hat,  est.jointMH$beta_1.hat - est.jointMH$se.beta_1.hat * qnorm(0.975), est.jointMH$beta_1.hat + est.jointMH$se.beta_1.hat * qnorm(0.975))
-    jointNC         = cbind("JointNC", est.jointNC$beta_1.hat, est.jointNC$se.beta_1.hat, est.jointNC$beta_1.hat - est.jointNC$se.beta_1.hat * qnorm(0.975), est.jointNC$beta_1.hat + est.jointNC$se.beta_1.hat * qnorm(0.975))
-    MH              = cbind("MH", est.MH$beta_1.hat, est.MH$se.beta_1.hat, est.MH$beta_1.hat - est.MH$se.beta_1.hat * qnorm(0.975), est.MH$beta_1.hat + est.MH$se.beta_1.hat * qnorm(0.975))
-    jointReg        = cbind("JointReg", est.jointReg$beta_1.hat, est.jointReg$se.beta_1.hat, est.jointReg$beta_1.hat - est.jointReg$se.beta_1.hat * qnorm(0.975), est.jointReg$beta_1.hat + est.jointReg$se.beta_1.hat * qnorm(0.975))
+    # Method Aug (with secondary outcome only)
+    est.Aug_Y2 = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(Y2s))
+    CI.Aug_Y2 = cbind(est.Aug_Y2$beta_1.hat - est.Aug_Y2$se.beta_1.hat * qnorm(0.975), est.Aug_Y2$beta_1.hat + est.Aug_Y2$se.beta_1.hat * qnorm(0.975))
+    Aug_Y2 = cbind("Aug_Y2", est.Aug_Y2$beta_1.hat, est.Aug_Y2$se.beta_1.hat, CI.Aug_Y2)
     
-    recap = rbind(jointMH, jointNC, MH, jointReg)
+    # Method Aug_WY2 (with secondary outcome and observed covariates)
+    est.Aug_WY2 = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(cbind(WAge, WRegion, Y2s)))
+    CI.Aug_WY2 = cbind(est.Aug_WY2$beta_1.hat - est.Aug_WY2$se.beta_1.hat * qnorm(0.975), est.Aug_WY2$beta_1.hat + est.Aug_WY2$se.beta_1.hat * qnorm(0.975))
+    Aug_WY2 = cbind("Aug_WY2", est.Aug_WY2$beta_1.hat, est.Aug_WY2$se.beta_1.hat, CI.Aug_WY2)
+    
+    # Method UnAug
+    est.UnAug = NaiveEE(Y1 = Y1c, T = T)
+    CI.UnAug = cbind(est.UnAug$beta_1.hat - est.UnAug$se.beta_1.hat * qnorm(0.975), est.UnAug$beta_1.hat + est.UnAug$se.beta_1.hat * qnorm(0.975))
+    UnAug = cbind("UnAug", est.UnAug$beta_1.hat, est.UnAug$se.beta_1.hat, CI.UnAug)
+    
+    recap = rbind(UnAug, Aug_W, Aug_Y2, Aug_WY2)     
     colnames(recap) = c("Approach", "beta_1.hat", "se.beta_1.hat", "CI.left", "CI.right")
     
-    res = rbind(res, cbind(recap, n = n, pY1 = paste(pY1, collapse = "_"), pY2 = paste(pY2, collapse = "_"), A = paste(a, collapse = "_"), beta_1.true = beta_1.true, corrY1cY2s = corrY1cY2s, varA = varA, beta_1.hat.modgee = est.jointReg$beta_1.hat.naive))
+    res = rbind(res, cbind(recap, n = n, pY1 = paste(pY1, collapse = "_"), pY2 = paste(pY2, collapse = "_"), A = paste(a, collapse = "_"), beta_1.true = beta_1.true, corrY1cY2s = corrY1cY2s, varA = varA))
   }
   
-  myfile  = paste0("RES_NonRandomized_TreatmentEffectY2_Part2-n", n, "-pY1", paste(pY1, collapse = "_"), "-A", paste(a, collapse = "_"), "-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData")
+  myfile  = paste0("RES_Randomized_TreatmentEffectY2_Part2-n", n, "-pY1", paste(pY1, collapse = "_"), "-A", paste(a, collapse = "_"), "-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData")
   save(res, file = myfile)
 }
 
 P = nrow(PARAM)
 resultat = mclapply(1:P, Onerun, mc.cores = 18)
 
+# Results for the randomized settings
 RES = NULL
 for(p in 1: nrow(PARAM)){
+  
   pY1             = PARAM[p, 1:2]
   a               = PARAM[p, 3:5]
   n               = PARAM[p, 6]
   
-  load(paste0("RES_NonRandomized_TreatmentEffectY2_Part2-n", n, "-pY1", paste(pY1, collapse = "_"), "-A", paste(a, collapse = "_"), "-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData"))
+  load(paste0("RES_Randomized_TreatmentEffectY2_Part2-n", n, "-pY1", paste(pY1, collapse = "_"), "-A", paste(a, collapse = "_"), "-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData"))
   RES = rbind(RES, res)
 }
 
 RECAP = as.data.frame(RES)
 RECAP$beta_1.hat = as.numeric(RECAP$beta_1.hat)
 RECAP$Approach = as.factor(RECAP$Approach)
-RECAP$Approach = factor(RECAP$Approach, labels = c("Joint-MH", "Joint-NC", "Joint-Reg", "MH"))
+RECAP$Approach = factor(RECAP$Approach, labels = c("Aug_W", "Aug_WY2", "Aug_Y2", "UnAug"))
 RECAP$se.beta_1.hat = as.numeric(RECAP$se.beta_1.hat)
 RECAP$beta_1.true = as.numeric(RECAP$beta_1.true)
 RECAP$pY1 = as.factor(RECAP$pY1)
@@ -362,21 +359,18 @@ RECAP$CI.right = as.numeric(RECAP$CI.right)
 RECAP$n = as.factor(RECAP$n)
 RECAP$n = factor(RECAP$n,levels(RECAP$n)[c(2,1)])
 
-myfile  = paste0("RECAP_NonRandomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData")
+myfile  = paste0("RECAP_Randomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData")
 save(RECAP, file = myfile)
 
 library(ggplot2)
 library(gtable)
 library(grid)
 library(xtable)
-
-## Plot of all scenarios
 # with more readable facets names
 RECAP$pY1 = factor(RECAP$pY1, labels = c("Low", "Medium", "High"))
 RECAP$A = factor(RECAP$A, labels = c("Small", "Medium", "Large"))
-plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot() + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A)# + scale_y_continuous(sec.axis = sec_axis(~ . , name = "Risk of infections with targeted types 16 and 18", breaks = NULL, labels = NULL)) # facet_grid(pY1~A, labeller = label_parsed)
-
-labelT = "Variance of the unmeasured confounder A"
+plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot(coef = NULL) + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.text = element_text(size = 11), axis.title = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A, labeller = label_parsed, scales = "free_y") + scale_color_manual(values=c("#932d48","#015fc6", "#ea95ff", "#53b31f"), labels = c( expression(Aug[W]), expression(Aug[WY2]), "Aug", "UnAug"))
+labelT = "Variance of the unmeasured covariate A"
 labelR = "Risk of infections with targeted types 16 and 18"
 # Get the ggplot grob
 z = ggplotGrob(plot)
@@ -405,10 +399,9 @@ z = gtable_add_rows(z, unit(1/5, "line"), min(posT$t))
 grid.newpage()
 grid.draw(z)
 # Save the plot
-pdf(paste0("Comparison_NonRandomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".pdf"),  width = 10, height = 7)
+pdf(paste0("Comparison_Randomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".pdf"),  width = 10, height = 7)
 grid.draw(z) # print it
 dev.off() # Stop writing to the PDF file
-
 
 # Computation of beta_2, for all the considered scenarios, as defined in Web Section D.1
 BETA_2 = NULL
@@ -439,25 +432,12 @@ for(p in 1:nrow(PARAM)){
         varA = varA + a[p]^2 * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i]
         varA = varA + a[p]^2 * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i]
       }}}
-  # So that P(T = 1) = 0.5
-  alpha_T = - 1 / 18
-  beta_T = 1.5
-  gamma_T = 1
-  delta_T = -0.91
-  meanT = 0
-  for(i in 1:length(wRegion)){
-    for(j in 1:length(wAge)){
-      for(p in 1:length(a)){
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i]
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i]
-        meanT = meanT + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p])) * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i]
-      }}}
   # So that P(Y1 = 1) = pY1, for each targeted type
   meanY1_part1 = 0
   for(i in 1:length(wRegion)){
     for(j in 1:length(wAge)){
       for(p in 1:length(a)){
-        pt = 1 / 2 / meanT * exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]) / (1 + exp(delta_T + alpha_T * wAge[j] + beta_T * wRegion[i] + gamma_T * a[p]))
+        pt = 1 / 2 
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 1) * Palow[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 2) * Pamedium[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
         meanY1_part1 = meanY1_part1 + exp(wAge[j] %*% t(q_WAge) + t(q_WRegion[i,])) * a[p] * (p == 3) * Pahigh[i,j] * PwAge[i,j] * PwRegion[i] * (exp(beta_1) * pt + 1 - pt )
@@ -522,49 +502,52 @@ for(i in 1:nrow(PARAM)){
   
   beta_1 = RECAP1$beta_1.true[1]
   
-  # Coverage of the confidence intervals 
-  cov.JointNC     = sum((RECAP1[which(RECAP1$Approach == "Joint-NC"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Joint-NC"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Joint-NC"),5])
-  cov.JointMH     = sum((RECAP1[which(RECAP1$Approach == "Joint-MH"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Joint-MH"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Joint-MH"),5])
-  cov.MH          = sum((RECAP1[which(RECAP1$Approach == "MH"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "MH"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "MH"),5])
-  cov.JointReg    = sum((RECAP1[which(RECAP1$Approach == "Joint-Reg"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Joint-Reg"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Joint-Reg"),5])
+  # Coverage of the confidence intervals (for the methods which return estimates of the variance)
+  cov.UnAug   = sum((RECAP1[which(RECAP1$Approach == "UnAug"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "UnAug"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "UnAug"),5])
+  cov.Aug_W   = sum((RECAP1[which(RECAP1$Approach == "Aug_W"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_W"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_W"),5])
+  cov.Aug_Y2  = sum((RECAP1[which(RECAP1$Approach == "Aug_Y2"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_Y2"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_Y2"),5])
+  cov.Aug_WY2 = sum((RECAP1[which(RECAP1$Approach == "Aug_WY2"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_WY2"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_WY2"),5])
   
-  sd.JointNC      = sd(RECAP1[which(RECAP1$Approach == "Joint-NC"),2])      # empirical standard deviation for hat.beta1 estimated with the joint approach (neglected covariates).
-  sd.JointMH      = sd(RECAP1[which(RECAP1$Approach == "Joint-MH"),2])      # empirical standard deviation for hat.beta1 estimated with the joint M-H approach.
-  sd.MH           = sd(RECAP1[which(RECAP1$Approach == "MH"),2])            # empirical standard deviation for hat.beta1 estimated with the naive standardized approach.
-  sd.JointReg     = sd(RECAP1[which(RECAP1$Approach == "Joint-Reg"),2])     # empirical standard deviation for hat.beta1 estimated with the joint approach, when the observed covariates are included in the estimating equations.
+  sd.UnAug    = sd(RECAP1[which(RECAP1$Approach == "UnAug"),2])         # empirical standard deviation for hat beta1 estimated with the UnAug approach.
+  sd.Aug_W    = sd(RECAP1[which(RECAP1$Approach == "Aug_W"),2])         # empirical standard deviation for hat beta1 estimated with the augmented approach (with observed covariates only).
+  sd.Aug_Y2   = sd(RECAP1[which(RECAP1$Approach == "Aug_Y2"),2])        # empirical standard deviation for hat beta1 estimated with the augmented approach (with secondary outcome).
+  sd.Aug_WY2  = sd(RECAP1[which(RECAP1$Approach == "Aug_WY2"),2])       # empirical standard deviation for hat beta1 estimated with the augmented approach (with secondary outcome and observed covariates).
   
-  sandwich_sd.JointNC   = mean(RECAP1[which(RECAP1$Approach == "Joint-NC"),3]) # mean of the sandwich standard deviations for hat beta1, with the joint approach (neglected covariates).
-  sandwich_sd.JointMH   = mean(RECAP1[which(RECAP1$Approach == "Joint-MH"),3]) # mean of the sandwich standard deviations for hat beta1, with the joint M-H approach.
-  sandwich_sd.MH        = mean(RECAP1[which(RECAP1$Approach == "MH"),3]) # mean of the sandwich standard deviations for hat beta1, with the naive standardized approach.
-  sandwich_sd.JointReg  = mean(RECAP1[which(RECAP1$Approach == "Joint-Reg"),3]) # mean of the sandwich standard deviations for hat beta1, with the joint approach, when the observed covariates are included in the estimating equations.
+  sandwich_sd.UnAug   = mean(RECAP1[which(RECAP1$Approach == "UnAug"),3]) # mean of the sandwich standard deviations for hat beta1, with the UnAug approach.
+  sandwich_sd.Aug_W   = mean(RECAP1[which(RECAP1$Approach == "Aug_W"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with observed covariates only).
+  sandwich_sd.Aug_Y2  = mean(RECAP1[which(RECAP1$Approach == "Aug_Y2"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with secondary outcome).
+  sandwich_sd.Aug_WY2 = mean(RECAP1[which(RECAP1$Approach == "Aug_WY2"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with secondary outcome and observed covariates).
   
-  mean.JointNC    = mean(RECAP1[which(RECAP1$Approach == "Joint-NC"),2]) # mean of hat beta1, when estimated with the joint approach (neglected covariates).
-  MSE.JointNC     = mean((RECAP1[which(RECAP1$Approach == "Joint-NC"),2] - beta_1)^2) # MSE, when beta1 is estimated with the joint naive approach (neglected covariates).
+  mean.UnAug    = mean(RECAP1[which(RECAP1$Approach == "UnAug"),2]) # mean of hat beta1, when estimated with the UnAug approach.
+  MSE.UnAug     = mean((RECAP1[which(RECAP1$Approach == "UnAug"),2] - beta_1)^2) # MSE, when beta1 is estimated with the UnAug approach.
   
-  mean.JointMH    = mean(RECAP1[which(RECAP1$Approach == "Joint-MH"),2]) # mean of hat beta1, when estimated with the joint M-H approach.
-  MSE.JointMH     = mean((RECAP1[which(RECAP1$Approach == "Joint-MH"),2] - beta_1)^2) # MSE, when beta1 is estimated with the joint M-H approach.
+  mean.Aug_W    = mean(RECAP1[which(RECAP1$Approach == "Aug_W"),2]) # mean of hat beta1, when estimated with the augmented approach (with observed covariates only).
+  MSE.Aug_W     = mean((RECAP1[which(RECAP1$Approach == "Aug_W"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with observed covariates only).
   
-  mean.MH         = mean(RECAP1[which(RECAP1$Approach == "MH"),2]) # mean of hat beta1, when estimated with the naive standardized MH approach.
-  MSE.MH          = mean((RECAP1[which(RECAP1$Approach == "MH"),2] - beta_1)^2) # MSE, when beta1 is estimated with the naive standardized MH approach.
+  mean.Aug_Y2   = mean(RECAP1[which(RECAP1$Approach == "Aug_Y2"),2]) # mean of hat beta1, when estimated with the augmented approach (with secondary outcome).
+  MSE.Aug_Y2    = mean((RECAP1[which(RECAP1$Approach == "Aug_Y2"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with secondary outcome).
   
-  mean.JointReg   = mean(RECAP1[which(RECAP1$Approach == "Joint-Reg"),2]) # mean of hat beta1, when estimated with the joint approach, when the observed covariates are included in the estimating equations.
-  MSE.JointReg    = mean((RECAP1[which(RECAP1$Approach == "Joint-Reg"),2] - beta_1)^2) # MSE, when beta1 is estimated with the joint approach, when the observed covariates are included in the estimating equations.
+  mean.Aug_WY2  = mean(RECAP1[which(RECAP1$Approach == "Aug_WY2"),2]) # mean of hat beta1, when estimated with the augmented approach (with secondary outcome and observed covariates).
+  MSE.Aug_WY2   = mean((RECAP1[which(RECAP1$Approach == "Aug_WY2"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with secondary outcome and observed covariates).
   
-  eff_MH_JointMH    = MSE.MH / MSE.JointMH # ratio of MSE for the naive method MH and Joint methods
-  eff_MH_JointNC    = MSE.MH / MSE.JointNC
-  eff_MH_JointReg   = MSE.MH / MSE.JointReg
+  eff_UnAug_Aug_W     = MSE.UnAug / MSE.Aug_W # ratio of MSE for the UnAug and augmented approach (with observed covariates only)
+  eff_UnAug_Aug_Y2    = MSE.UnAug / MSE.Aug_Y2 # ratio of MSE for the UnAug and augmented approach (with secondary outcome)
+  eff_UnAug_Aug_WY2   = MSE.UnAug / MSE.Aug_WY2 # ratio of MSE for the UnAug and augmented approach (with secondary outcome and observed covariates)
   
-  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.NaiveJoint = mean.JointNC - beta_1,  bias.JointCov = mean.JointReg - beta_1, empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.jointCov = sd.JointReg, sandwich_sd.jointCov = sandwich_sd.JointReg,  CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.NaiveJoint = cov.JointNC,  CIcov.JointCov = cov.JointReg, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
+  Eff = rbind(Eff, c(eff_beta1_Aug_W = eff_UnAug_Aug_W, eff_beta1_Aug_Y2 = eff_UnAug_Aug_Y2, eff_beta1_Aug_WY2 = eff_UnAug_Aug_WY2, bias.UnAug = mean.UnAug - beta_1, bias.Aug_W = mean.Aug_W - beta_1, bias.Aug_Y2 = mean.Aug_Y2 - beta_1, bias.Aug_WY2 = mean.Aug_WY2 - beta_1, empir_sd.UnAug = sd.UnAug, sandwich_sd.UnAug = sandwich_sd.UnAug, empir_sd.Aug_W = sd.Aug_W, sandwich_sd.Aug_W = sandwich_sd.Aug_W, empir_sd.Aug_Y2 = sd.Aug_Y2, sandwich_sd.Aug_Y2 = sandwich_sd.Aug_Y2, empir_sd.Aug_WY2 = sd.Aug_WY2, sandwich_sd.Aug_WY2 = sandwich_sd.Aug_WY2,  CIcov.UnAug = cov.UnAug, CIcov.Aug_W = cov.Aug_W, CIcov.Aug_Y2 = cov.Aug_Y2, CIcov.Aug_WY2 = cov.Aug_WY2, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
 }
-
 Eff = as.data.frame(Eff)
 Eff = cbind(Eff, beta_2.true = c(BETA_2))
-ColNames = colnames(Eff[,c(1:20, 23:24)])
+ColNames = colnames(Eff[,c(1:20, 23:25)])
 Eff[ColNames] = sapply(Eff[ColNames], as.numeric)
-# print(xtable(Eff, type = "latex", digits = 3), include.rownames=FALSE) # LaTeX table
+#print(xtable(Eff, type = "latex", digits = 3), include.rownames=FALSE) # LaTeX table
 beta_1          = c(beta_1.16, beta_1.18)
-myfile  = paste0("Eff_NonRandomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData")  # save as Rdata
+myfile  = paste0("Eff_Randomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData") # save as Rdata
 save(Eff, file = myfile)
 Eff[ColNames] = round(Eff[ColNames], digits = 3)
 Eff = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
-write.csv(Eff, file = paste0("Eff_NonRandomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
+#Eff = Eff[-which(Eff$A == "a[low] == ~0 ~ \",\" ~ a[medium] == ~1 ~ \",\" ~ a[high] == ~2.5" ),]
+#Eff = Eff[-which(Eff$pY1 == "P[Y[1]^(16) == 1] == ~0.05 ~ \",\" ~ P[Y[1]^(18) == 1] == ~0.1"),]
+#Eff = Eff[-which(Eff$pY1 == "P[Y[1]^(16) == 1] == ~0.1 ~ \",\" ~ P[Y[1]^(18) == 1] == ~0.07"),]
+write.csv(Eff, file = paste0("Eff_Randomized_TreatmentEffectY2_Part2-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
+

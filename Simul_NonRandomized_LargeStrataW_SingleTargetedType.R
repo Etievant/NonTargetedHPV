@@ -1,5 +1,5 @@
 ## Implementation of the simulation for the non-randomized setting when the observed covariate only has a few large strata, and when infection with a single targeted HPV 
-# type is considered as primary outcome (simulation of WebSection E.2.3).
+# type is considered as primary outcome (simulation of WebSection E.3.3).
 # We only consider n = 5,000 and 10,000.
 
 ## Variables:

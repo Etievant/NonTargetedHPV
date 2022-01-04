@@ -1,4 +1,4 @@
-## Implementation of the simulation for the non-randomized setting when the observed covariate only has a few large strata  (simulation of WebSection E.2.2).
+## Implementation of the simulation for the non-randomized setting when the observed covariate only has a few large strata  (simulation of WebSection E.3.2).
 # We only consider n = 5,000 and 10,000.
 
 ## Variables:

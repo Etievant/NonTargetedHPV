@@ -87,10 +87,10 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 10^4
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
+  set.seed(1234)
   
   # Considered scenario
   pY1             = PARAM[p, 1:2]
@@ -291,17 +291,27 @@ Onerun = function(p){
     
     ## Estimation of the parameters
     
-    # Method Aug 
-    est.Aug = AugmentedEE(Y1 = Y1c, T = T, Y2 = Y2s)
-    CI.Aug = cbind(est.Aug$beta_1.hat - est.Aug$se.beta_1.hat * qnorm(0.975), est.Aug$beta_1.hat + est.Aug$se.beta_1.hat * qnorm(0.975))
-    Aug = cbind("Aug", est.Aug$beta_1.hat, est.Aug$se.beta_1.hat, CI.Aug)
+    # Method Zhang (Aug with observed covariates only, as proposed by Zhang, Tsiatis and Davidian, 2008)
+    est.Aug_W = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(cbind(WAge, WRegion)))
+    CI.Aug_W = cbind(est.Aug_W$beta_1.hat - est.Aug_W$se.beta_1.hat * qnorm(0.975), est.Aug_W$beta_1.hat + est.Aug_W$se.beta_1.hat * qnorm(0.975))
+    Aug_W = cbind("Aug_W", est.Aug_W$beta_1.hat, est.Aug_W$se.beta_1.hat, CI.Aug_W)
+    
+    # Method Aug (with secondary outcome only)
+    est.Aug_Y2 = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(Y2s))
+    CI.Aug_Y2 = cbind(est.Aug_Y2$beta_1.hat - est.Aug_Y2$se.beta_1.hat * qnorm(0.975), est.Aug_Y2$beta_1.hat + est.Aug_Y2$se.beta_1.hat * qnorm(0.975))
+    Aug_Y2 = cbind("Aug_Y2", est.Aug_Y2$beta_1.hat, est.Aug_Y2$se.beta_1.hat, CI.Aug_Y2)
+    
+    # Method Aug_WY2 (with secondary outcome and observed covariates)
+    est.Aug_WY2 = AugmentedEE(Y1 = Y1c, T = T, Z = as.data.frame(cbind(WAge, WRegion, Y2s)))
+    CI.Aug_WY2 = cbind(est.Aug_WY2$beta_1.hat - est.Aug_WY2$se.beta_1.hat * qnorm(0.975), est.Aug_WY2$beta_1.hat + est.Aug_WY2$se.beta_1.hat * qnorm(0.975))
+    Aug_WY2 = cbind("Aug_WY2", est.Aug_WY2$beta_1.hat, est.Aug_WY2$se.beta_1.hat, CI.Aug_WY2)
     
     # Method UnAug
     est.UnAug = NaiveEE(Y1 = Y1c, T = T)
     CI.UnAug = cbind(est.UnAug$beta_1.hat - est.UnAug$se.beta_1.hat * qnorm(0.975), est.UnAug$beta_1.hat + est.UnAug$se.beta_1.hat * qnorm(0.975))
     UnAug = cbind("UnAug", est.UnAug$beta_1.hat, est.UnAug$se.beta_1.hat, CI.UnAug)
     
-    recap = rbind(UnAug, Aug)   
+    recap = rbind(UnAug, Aug_W, Aug_Y2, Aug_WY2)   
     colnames(recap) = c("Approach", "beta_1.hat", "se.beta_1.hat", "CI.left", "CI.right")
     
     res = rbind(res, cbind(recap, n = n, pY1 = paste(pY1, collapse = "_"), pY2 = paste(pY2, collapse = "_"), A = paste(a, collapse = "_"), beta_1.true = beta_1.true, corrY1cY2s = corrY1cY2s, varA = varA))
@@ -329,7 +339,7 @@ for(p in 1: nrow(PARAM)){
 RECAP = as.data.frame(RES)
 RECAP$beta_1.hat = as.numeric(RECAP$beta_1.hat)
 RECAP$Approach = as.factor(RECAP$Approach)
-RECAP$Approach = factor(RECAP$Approach, labels = c("Aug", "UnAug"))
+RECAP$Approach = factor(RECAP$Approach, labels = c("Aug_W", "Aug_WY2", "Aug_Y2", "UnAug"))
 RECAP$se.beta_1.hat = as.numeric(RECAP$se.beta_1.hat)
 RECAP$beta_1.true = as.numeric(RECAP$beta_1.true)
 RECAP$pY1 = as.factor(RECAP$pY1)
@@ -349,7 +359,7 @@ library(ggplot2)
 library(gtable)
 library(grid)
 library(xtable)
-# with more readable facets names
+# Plotting the results
 RECAP$pY1 = factor(RECAP$pY1, labels = c("Low", "Medium", "High"))
 RECAP$A = factor(RECAP$A, labels = c("Small", "Medium", "Large"))
 plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot() + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.text = element_text(size = 11), axis.title = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) +   facet_grid(pY1~A, labeller = label_parsed) 
@@ -392,40 +402,108 @@ Nreplic   = 10^4
 Eff = NULL
 for(i in 1:nrow(PARAM)){
   
-  RECAP1 = RECAP[((i-1)*(2*Nreplic) + 1):(i*(2*Nreplic)),]
+  RECAP1 = RECAP[((i-1)*(4*Nreplic) + 1):(i*(4*Nreplic)),]
   
   beta_1 = RECAP1$beta_1.true[1]
   
   # Coverage of the confidence intervals (for the methods which return estimates of the variance)
   cov.UnAug   = sum((RECAP1[which(RECAP1$Approach == "UnAug"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "UnAug"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "UnAug"),5])
-  cov.Aug   = sum((RECAP1[which(RECAP1$Approach == "Aug"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug"),5])
+  cov.Aug_W   = sum((RECAP1[which(RECAP1$Approach == "Aug_W"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_W"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_W"),5])
+  cov.Aug_Y2  = sum((RECAP1[which(RECAP1$Approach == "Aug_Y2"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_Y2"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_Y2"),5])
+  cov.Aug_WY2 = sum((RECAP1[which(RECAP1$Approach == "Aug_WY2"),4] < beta_1)&(RECAP1[which(RECAP1$Approach == "Aug_WY2"),5] > beta_1)) / length(RECAP1[which(RECAP1$Approach == "Aug_WY2"),5])
   
-  sd.UnAug      = sd(RECAP1[which(RECAP1$Approach == "UnAug"),2])         # empirical standard deviation for hat beta1 estimated with the UnAug approach.
-  sd.Aug      = sd(RECAP1[which(RECAP1$Approach == "Aug"),2])         # empirical standard deviation for hat beta1 estimated with the augmented approach.
+  sd.UnAug    = sd(RECAP1[which(RECAP1$Approach == "UnAug"),2])         # empirical standard deviation for hat beta1 estimated with the UnAug approach.
+  sd.Aug_W    = sd(RECAP1[which(RECAP1$Approach == "Aug_W"),2])         # empirical standard deviation for hat beta1 estimated with the augmented approach (with observed covariates only).
+  sd.Aug_Y2   = sd(RECAP1[which(RECAP1$Approach == "Aug_Y2"),2])        # empirical standard deviation for hat beta1 estimated with the augmented approach (with secondary outcome).
+  sd.Aug_WY2  = sd(RECAP1[which(RECAP1$Approach == "Aug_WY2"),2])       # empirical standard deviation for hat beta1 estimated with the augmented approach (with secondary outcome and observed covariates).
   
-  sandwich_sd.UnAug  = mean(RECAP1[which(RECAP1$Approach == "UnAug"),3]) # mean of the sandwich standard deviations for hat beta1, with the UnAug approach.
-  sandwich_sd.Aug  = mean(RECAP1[which(RECAP1$Approach == "Aug"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach.
+  sandwich_sd.UnAug   = mean(RECAP1[which(RECAP1$Approach == "UnAug"),3]) # mean of the sandwich standard deviations for hat beta1, with the UnAug approach.
+  sandwich_sd.Aug_W   = mean(RECAP1[which(RECAP1$Approach == "Aug_W"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with observed covariates only).
+  sandwich_sd.Aug_Y2  = mean(RECAP1[which(RECAP1$Approach == "Aug_Y2"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with secondary outcome).
+  sandwich_sd.Aug_WY2 = mean(RECAP1[which(RECAP1$Approach == "Aug_WY2"),3]) # mean of the sandwich standard deviations for hat beta1, with the augmented approach (with secondary outcome and observed covariates).
   
-  mean.UnAug = mean(RECAP1[which(RECAP1$Approach == "UnAug"),2]) # mean of hat beta1, when estimated with the UnAug approach.
-  MSE.UnAug = mean((RECAP1[which(RECAP1$Approach == "UnAug"),2] - beta_1)^2) # MSE, when beta1 is estimated with the UnAug approach.
+  mean.UnAug    = mean(RECAP1[which(RECAP1$Approach == "UnAug"),2]) # mean of hat beta1, when estimated with the UnAug approach.
+  MSE.UnAug     = mean((RECAP1[which(RECAP1$Approach == "UnAug"),2] - beta_1)^2) # MSE, when beta1 is estimated with the UnAug approach.
   
-  mean.Aug = mean(RECAP1[which(RECAP1$Approach == "Aug"),2]) # mean of hat beta1, when estimated with the augmented approach.
-  MSE.Aug = mean((RECAP1[which(RECAP1$Approach == "Aug"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach.
+  mean.Aug_W    = mean(RECAP1[which(RECAP1$Approach == "Aug_W"),2]) # mean of hat beta1, when estimated with the augmented approach (with observed covariates only).
+  MSE.Aug_W     = mean((RECAP1[which(RECAP1$Approach == "Aug_W"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with observed covariates only).
   
-  eff_UnAug_Aug      = MSE.UnAug / MSE.Aug # ratio of MSE for the UnAug and augmented approach
+  mean.Aug_Y2   = mean(RECAP1[which(RECAP1$Approach == "Aug_Y2"),2]) # mean of hat beta1, when estimated with the augmented approach (with secondary outcome).
+  MSE.Aug_Y2    = mean((RECAP1[which(RECAP1$Approach == "Aug_Y2"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with secondary outcome).
   
-  Eff = rbind(Eff, c(eff_beta1_Aug = eff_UnAug_Aug, bias.UnAug = mean.UnAug - beta_1,  bias.Aug = mean.Aug - beta_1, empir_sd.UnAug = sd.UnAug, sandwich_sd.UnAug = sandwich_sd.UnAug, empir_sd.Aug = sd.Aug, sandwich_sd.Aug = sandwich_sd.Aug,  CIcov.UnAug = cov.UnAug, CIcov.Aug = cov.Aug, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
+  mean.Aug_WY2  = mean(RECAP1[which(RECAP1$Approach == "Aug_WY2"),2]) # mean of hat beta1, when estimated with the augmented approach (with secondary outcome and observed covariates).
+  MSE.Aug_WY2   = mean((RECAP1[which(RECAP1$Approach == "Aug_WY2"),2] - beta_1)^2) # MSE, when beta1 is estimated with the augmented approach (with secondary outcome and observed covariates).
+  
+  eff_UnAug_Aug_W     = MSE.UnAug / MSE.Aug_W # ratio of MSE for the UnAug and augmented approach (with observed covariates only)
+  eff_UnAug_Aug_Y2    = MSE.UnAug / MSE.Aug_Y2 # ratio of MSE for the UnAug and augmented approach (with secondary outcome)
+  eff_UnAug_Aug_WY2   = MSE.UnAug / MSE.Aug_WY2 # ratio of MSE for the UnAug and augmented approach (with secondary outcome and observed covariates)
+  
+  Eff = rbind(Eff, c(eff_beta1_Aug_W = eff_UnAug_Aug_W, eff_beta1_Aug_Y2 = eff_UnAug_Aug_Y2, eff_beta1_Aug_WY2 = eff_UnAug_Aug_WY2, bias.UnAug = mean.UnAug - beta_1, bias.Aug_W = mean.Aug_W - beta_1, bias.Aug_Y2 = mean.Aug_Y2 - beta_1, bias.Aug_WY2 = mean.Aug_WY2 - beta_1, empir_sd.UnAug = sd.UnAug, sandwich_sd.UnAug = sandwich_sd.UnAug, empir_sd.Aug_W = sd.Aug_W, sandwich_sd.Aug_W = sandwich_sd.Aug_W, empir_sd.Aug_Y2 = sd.Aug_Y2, sandwich_sd.Aug_Y2 = sandwich_sd.Aug_Y2, empir_sd.Aug_WY2 = sd.Aug_WY2, sandwich_sd.Aug_WY2 = sandwich_sd.Aug_WY2,  CIcov.UnAug = cov.UnAug, CIcov.Aug_W = cov.Aug_W, CIcov.Aug_Y2 = cov.Aug_Y2, CIcov.Aug_WY2 = cov.Aug_WY2, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
 }
-Eff = as.data.frame(Eff)
-ColNames = colnames(Eff[,c(1:10, 13:14)])
+Eff           = as.data.frame(Eff)
+ColNames      = colnames(Eff[,c(1:20, 23:24)])
 Eff[ColNames] = sapply(Eff[ColNames], as.numeric)
 #print(xtable(Eff, type = "latex", digits = 3), include.rownames=FALSE) # LaTeX table
-beta_1          = c(beta_1.16, beta_1.18)
-myfile  = paste0("Eff_Randomized-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData") # save as Rdata
+beta_1        = c(beta_1.16, beta_1.18)
+myfile        = paste0("Eff_Randomized-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".RData") # save as Rdata
 save(Eff, file = myfile)
+Eff1 = Eff
 Eff[ColNames] = round(Eff[ColNames], digits = 3)
-Eff = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
+Eff           = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
 write.csv(Eff, file = paste0("Eff_Randomized-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
+Eff = Eff1
 
+# Other way to plot the results (variance only, as the estimates are unbiased)
+SD_Approaches = rbind(cbind("UnAug", Eff$sandwich_sd.UnAug, Eff$n, Eff$pY1, Eff$A), cbind("Aug_W", Eff$sandwich_sd.Aug_W, Eff$n, Eff$pY1, Eff$A), cbind("Aug", Eff$sandwich_sd.Aug_Y2, Eff$n, Eff$pY1, Eff$A), cbind("Aug_WY2", Eff$sandwich_sd.Aug_WY2, Eff$n, Eff$pY1, Eff$A))
+SD_Approaches = as.data.frame(SD_Approaches)
+colnames(SD_Approaches) = c("Approach", "SD", "n", "pY1", "A")
+SD_Approaches$SD = as.numeric(SD_Approaches$SD)
+SD_Approaches$Var = (SD_Approaches$SD)^2
+SD_Approaches$Approach = as.factor(SD_Approaches$Approach)
+SD_Approaches$Approach = factor(SD_Approaches$Approach, labels = c("Aug", expression(Aug[WY2]), "UnAug", expression(Aug[W])))
+SD_Approaches$n = as.factor(SD_Approaches$n)
+SD_Approaches$n = factor(SD_Approaches$n, levels(SD_Approaches$n)[c(2,1,3)])
+SD_Approaches$pY1 = as.factor(SD_Approaches$pY1)
+SD_Approaches$pY1 = factor(SD_Approaches$pY1, levels(SD_Approaches$pY1)[c(2,3,1)])
+SD_Approaches$A = as.factor(SD_Approaches$A)
+SD_Approaches$A = factor(SD_Approaches$A, levels(SD_Approaches$A)[c(3,2,1)])
 
+library(ggplot2)
+library(gtable)
+library(grid)
+library(xtable)
+library(ggh4x)
 
+plot = ggplot(SD_Approaches, aes(x = n, y = Var, color = Approach, group = Approach)) + geom_point() + geom_line(size = 0.3) + theme_light() + theme(plot.title = element_text(size = 11), axis.text = element_text(size = 10), axis.title = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(var(hat(beta)[1]^C) ))) + facet_grid2(pY1~A, labeller = label_parsed, scales = "free_y", independent = "y") + scale_color_manual(values=c("#ea95ff", "#015fc6", "#53b31f", "#932d48"), labels = c("Aug", expression(Aug[WY2]), "UnAug", expression(Aug[W])) )
+labelT = "Variance of the unmeasured covariate A"
+labelR = "Risk of infections with targeted types 16 and 18"
+# Get the ggplot grob
+z = ggplotGrob(plot)
+# Get the positions of the strips in the gtable: t = top, l = left, ...
+posR = subset(z$layout, grepl("strip-r", name), select = t:r)
+posT = subset(z$layout, grepl("strip-t", name), select = t:r)
+# Add a new column to the right of current right strips, 
+# and a new row on top of current top strips
+width = z$widths[max(posR$r)]    # width of current right strips
+height = z$heights[min(posT$t)]  # height of current top strips
+z = gtable_add_cols(z, width, max(posR$r))  
+z = gtable_add_rows(z, height, min(posT$t)-1)
+# Construct the new strip grobs
+stripR = gTree(name = "Strip_right", children = gList(
+  rectGrob(gp = gpar(color = "black", fill = "white")),
+  textGrob(labelR, rot = -90, gp = gpar(fontsize = 11, col = "black"))))
+stripT = gTree(name = "Strip_top", children = gList(
+  rectGrob(gp = gpar(color = "black", fill = "white")),
+  textGrob(labelT, gp = gpar(fontsize = 11, col = "black"))))
+# Position the grobs in the gtable
+z = gtable_add_grob(z, stripR, t = min(posR$t)+1, l = max(posR$r) + 1, b = max(posR$b)+1, name = "strip-right")
+z = gtable_add_grob(z, stripT, t = min(posT$t), l = min(posT$l), r = max(posT$r), name = "strip-top")
+# Add small gaps between strips
+z = gtable_add_cols(z, unit(1/5, "line"), max(posR$r))
+z = gtable_add_rows(z, unit(1/5, "line"), min(posT$t))
+grid.newpage()
+grid.draw(z)
+# Save the plot
+pdf(paste0("Comparison2_Randomized-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".pdf"),  width = 10, height = 7)
+grid.draw(z) # print it
+dev.off() # Stop writing to the PDF file

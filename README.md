@@ -1,10 +1,8 @@
 # NonTargetedHPV
 
-##  Increasing efficiency and reducing bias when assessing HPV vaccination efficacy by using non-targeted HPV strains
+Replication of the simulation studies in "Increasing efficiency and reducing bias when assessing HPV vaccination efficacy by using non-targeted HPV strains", by Etievant, Sampson and Gail. The methods described in the article are implemented in the file `EstimationFunctions.R`.
 
-Code for replicating the simulations in “Increasing efficiency and reducing bias when assessing HPV vaccination efficacy by using non-targeted HPV strains”, by Etievant, Sampson and Gail.
-
-### Packages required 
+### Required packages 
 
 ```
 gee, ggplot2, grid, gtable, parallel and xtable.
@@ -12,26 +10,35 @@ gee, ggplot2, grid, gtable, parallel and xtable.
 
 ### Scripts
 
-* Script `Simul_Randomized.R` allows to replicate the simulations proposed by Etievant, Sampson and Gail in Section 3.2.
+* Script `Simul_Randomized.R` replicates the simulations proposed by Etievant, Sampson and Gail in Section 3.2.
 
-* Scripts `Simul_NonRandomized_Part1.R` and `Simul_NonRandomized_Part1.R` allow to replicate the simulations proposed in Section 3.3. 
+* Scripts `Simul_NonRandomized_Part1.R` and `Simul_NonRandomized_Part1.R` replicate the simulations proposed in Section 3.3. 
 
-* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Appendix E.2.1.1. 
+* Scripts `Simul_Randomized_TreatmentEffectY2_Part1.R` and `Simul_Randomized_TreatmentEffect` `Y2_Part2.R` replicate the simulations proposed in Web Section E.3.1.1. 
 
-* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R` and `Simul_NonRandomized_TreatmentEffectY2_Part2.R` allows to replicate the simulations proposed in Web Appendix E.2.1.2.
+* Scripts `Simul_NonRandomized_TreatmentEffectY2_Part1.R` and `Simul_NonRandomized_Treatment` `EffectY2_Part2.R` replicate the simulations proposed in Web Section E.3.1.2.
 
-* Script `Simul_NonRandomized_LargeStrataW.R` allows to replicate the simulations proposed in Web Appendix E.2.2. 
+* Script `Simul_NonRandomized_LargeStrataW.R` replicates the simulations proposed in Web Section E.3.2. 
 
-* Script `Simul_NonRandomized_LargeStrataW_SingleTargetedType.R` allows to replicate the simulations proposed in Web Appendix E.2.3. 
+* Script `Simul_NonRandomized_LargeStrataW_SingleTargetedType.R` replicates the simulations proposed in Web Section E.3.3. 
 
-Each script also relies on functions provided in `EstimationFunctions.R` and certain parameters provided in `Parameters.RData`.
+Each script relies on functions provided in `EstimationFunctions.R` and certain parameters provided in `Parameters.RData`.
+
+
+### Instructions to run each script
+
+* Save the chosen script(s) and files `EstimationFunctions.R` and `Parameters.RData` in the same directory.
+
+* Open and run the whole script(s).
+
+* The results of the simulations are saved in figures and tables. For example, when running script `Simul_Randomized.R`, file Comparison_Randomized-beta1-0.73-0.86.pdf and table Eff_Randomized-beta1-0.73-0.86.csv will give the same results as displayed in Figure 2 and Table 2 of Section 3.2.
 
 
 ### Functions provided in `EstimationFunctions.R`
 
-* **NaiveEE** - estimation of the treatment effect with the ``unaugmented'' approach, UnAug.
+* **NaiveEE** - estimation of the treatment effect with the naive, or un-augmented, approach (UnAug).
 
-* **AugmentedEE** - estimation of the treatment effect on the primary outcome of interest with method Aug, following Zhang, Tsiatis and Davidian (Biometrics, 2008), when the primary outcome is binary and the secondary outcome is categorical. The primary outcome estimating equation is augmented with a function of the secondary outcome, and two logit models are used  for E(Y1 | Y2, T = 1) and  E(Y1 | Y2, T = 0).
+* **AugmentedEE** - estimation of the treatment effect with augmentation to gain efficiency. The primary outcome estimating equation is augmented with a function of Z, and two logit models are used for E(Y1 | Z, T = 1) and  E(Y1 | Z, T = 0). One can use data on baseline covariates for the augmentation (method Aug_W, as proposed by Zhang, Tsiatis and Davidian in Biometrics, 2008), data on a secondary outcome unaffected by the treatment (method Aug), or data on both (method Aug_WY2).
 
 * **JointNC** - estimation of the treatment effect on the primary outcome of interest with method JointNC. Relies on the joint estimation of the treatment effect on primary and secondary outcomes. Information on potential observed covariates is not used. 
 
@@ -46,14 +53,5 @@ Each script also relies on functions provided in `EstimationFunctions.R` and cer
 * **JointReg_ContCov** - estimation of the treatment effect on the primary outcome of interest with method JointReg, when observed covariates are continuous. It relies on joint estimation of the treatment on primary and secondary outcomes, using regression models where the observed continuous covariates are included (using quadratic polynomial functions for the continuous covariates).
 
 * **SSJoint** - estimation of the treatment effect on the primary outcome of interest with method JointNC, applied stratum by stratum of an observed categorical covariate (with only a few strata). The final estimate is computed as a weighted average of the stratum-specific estimates. 
-
-### Instructions to run each script
-
-* Save the chosen script(s) and files `EstimationFunctions.R` and `Parameters.RData` in the same directory.
-
-* Open and run the whole script(s).
-
-* The results of the simulations are saved automatically in figures and tables. For example, when running script `Simul_Randomized.R`, file Comparison_Randomized-beta1-0.73_-0.86.pdf and table Eff_Randomized-beta1-0.73_-0.86.csv will give the same results as displayed in Figure 2 and Table 2 of Section 3.2.
-
 
 

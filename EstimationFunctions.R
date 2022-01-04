@@ -2,12 +2,12 @@ library(gee)
 
 ## Functions to estimate the treatment effect and its variance, with different methods. 
 
-## 1- NaiveEE: estimation of the treatment effect with the naive, or un-augmented, approach.
+## 1- NaiveEE: estimation of the treatment effect with the naive, or un-augmented, approach (UnAug).
 
-## 2- AugmentedEE: estimation of the treatment effect on the primary outcome of interest with method Aug, following Zhang, Tsiatis
-# and Davidian (Biometrics, 2008), when the primary outcome is binary and the secondary outcome is categorical. The primary outcome
-# estimating equation is augmented with a function of the secondary outcome, and two logit models are used for E(Y1 | Y2, T = 1) 
-# and  E(Y1 | Y2, T = 0).
+## 2- AugmentedEE: estimation of the treatment effect with augmentation to gain efficiency. The primary outcome estimating equation
+# is augmented with a function of Z, and two logit models are used for E(Y1 | Z, T = 1) and  E(Y1 | Z, T = 0). One can use data on 
+# baseline covariates for the augmentation (method Aug_W, as proposed by Zhang, Tsiatis and Davidian in Biometrics, 2008), data on 
+# a secondary outcome unaffected by the treatment (method Aug), or data on both (method Aug_WY2).
 
 ## 3- JointNC: estimation of the treatment effect on the primary outcome of interest with method JointNC. Relies on the joint 
 # estimation of the treatment effect on primary and secondary outcomes. Information on potential observed covariates is not used. 
@@ -81,7 +81,7 @@ NaiveEE = function(Y1 = Y1, T = T){
 ## Arguments:
 # Y1: outcome of interest, assumed to be binary.
 # T: treatment of interest, assumed to be binary. A log-link is used to relate Y1 and T.
-# Y2: secondary outcome. Two logit links are used to relate Y1 to Y2, for individuals with T = 0 and T = 1, respectively.
+# Z: secondary outcome or baseline covariates, used for the augmentation. Two logit links are used to relate Y1 to Y2, for individuals with T = 0 and T = 1, respectively.
 
 ## Values:
 # mu_1.hat: estimate of the intercept.
@@ -89,25 +89,26 @@ NaiveEE = function(Y1 = Y1, T = T){
 # beta_1.hat: estimate of the treatment effect.
 # se.beta_1.hat: sandwich estimate for the standard deviation of beta_1.hat.
 
-AugmentedEE = function(Y1 = Y1, T = T, Y2 = Y2){
+AugmentedEE = function(Y1 = Y1, T = T, Z = Z){
   n                     = length(Y1) # sample size
   Pi_T1                 = sum(T) / n # P(T = 1)
   T0.individuals        = which(T == 0) # Untreated individuals
   T1.individuals        = which(T == 1) # Treated individuals
-  dataset               = as.data.frame(cbind(T = T, Y1 = Y1, Y2 = Y2))
+  dataset               = as.data.frame(cbind(T = T, Y1 = Y1, Z = Z))
+  if(!is.null(colnames(Z))){colnames(dataset)[-c(1,2)] = colnames(Z)}
   dataset.T0            = dataset[T0.individuals,]
   dataset.T1            = dataset[T1.individuals,]
   
-  # Two logit models are used to predict E(Y1 | Y2, T = 0) and E(Y1 | Y2, T = 1)
-  model.T0              = glm(as.factor(Y1) ~ Y2, family = "binomial", data = dataset.T0)
-  model.T1              = glm(as.factor(Y1) ~ Y2, family = "binomial", data = dataset.T1)
-  meanY1_Y2T0           = predict.glm(model.T0, newdata = as.data.frame(Y2), type = "response")
-  meanY1_Y2T1           = predict.glm(model.T1, newdata = as.data.frame(Y2), type = "response")
-
+  # Two logit models are used to predict E(Y1 | Z, T = 0) and E(Y1 | Z, T = 1)
+  model.T0              = glm(as.factor(Y1) ~ . - T, family = "binomial", data = dataset.T0)
+  model.T1              = glm(as.factor(Y1) ~ . - T, family = "binomial", data = dataset.T1)
+  meanY1_ZT0            = predict.glm(model.T0, newdata = as.data.frame(Z), type = "response")
+  meanY1_ZT1            = predict.glm(model.T1, newdata = as.data.frame(Z), type = "response")
+  
   # Parameter estimation
-  e.mu_1.hat            = sum((1-T) * Y1 + (T - Pi_T1) * meanY1_Y2T0) / (sum(1 - T) + sum(Pi_T1 - T)) # estimation of the intercept for Y1.
+  e.mu_1.hat            = sum((1-T) * Y1 + (T - Pi_T1) * meanY1_ZT0) / (sum(1 - T) + sum(Pi_T1 - T)) # estimation of the intercept for Y1.
   mu_1.hat              = log(e.mu_1.hat)
-  e.beta_1.hat          = sum(T * Y1 - (T - Pi_T1) * meanY1_Y2T1) /  (sum(T) - sum(Pi_T1 - T))  / e.mu_1.hat # estimation of the treatment effect for Y1.
+  e.beta_1.hat          = sum(T * Y1 - (T - Pi_T1) * meanY1_ZT1) /  (sum(T) - sum(Pi_T1 - T))  / e.mu_1.hat # estimation of the treatment effect for Y1.
   beta_1.hat            = log(e.beta_1.hat)
   
   # Sandwich estimation of the variance
@@ -115,8 +116,8 @@ AugmentedEE = function(Y1 = Y1, T = T, Y2 = Y2){
   p11.hat               = e.mu_1.hat * e.beta_1.hat
   p10.hat               = e.mu_1.hat
   U1.hat                = rbind((Y1 - p1.hat) / (1 - p1.hat), T * (Y1 - p1.hat) / (1 - p1.hat))
-  a_1.hat               = cbind( (meanY1_Y2T1 - p11.hat) / (1 - p11.hat) , (meanY1_Y2T1 - p11.hat) / (1 - p11.hat))
-  a_0.hat               = cbind( (meanY1_Y2T0 - p10.hat) / (1 - p10.hat) , 0)
+  a_1.hat               = cbind( (meanY1_ZT1 - p11.hat) / (1 - p11.hat) , (meanY1_ZT1 - p11.hat) / (1 - p11.hat))
+  a_0.hat               = cbind( (meanY1_ZT0 - p10.hat) / (1 - p10.hat) , 0)
   augmenting_term.hat   = rbind((T - Pi_T1), (T - Pi_T1)) * (t(a_1.hat) - t(a_0.hat))
   drond_U1.hat          = matrix(NA, nrow = 2, ncol = 2)
   drond_U1.hat[1,]      = rbind(sum(p1.hat * (Y1 - 1) / (1 - p1.hat)^2), sum(T * p1.hat * (Y1 - 1) / (1 - p1.hat)^2)) / n
@@ -127,15 +128,16 @@ AugmentedEE = function(Y1 = Y1, T = T, Y2 = Y2){
 }
 
 
+
 ## JointNC:
 
 ## Arguments:
 # Y1: outcome of interest, assumed to be binary.
-# T: treatment of interest, assumed to be binary. A log-link is used to relate Y1 and T.
 # Y2: secondary outcome.
+# T: treatment of interest, assumed to be binary. A log-link is used to relate Y1 and T and to relate Y2 and T.
 
 ## Values:
-# beta_1.hat: estimate of the treatment effect.
+# beta_1.hat: final estimate of the treatment effect on Y1.
 # se.beta_1.hat: sandwich estimate for the standard deviation of beta_1.hat.
 
 JointNC = function(Y1 = Y1, Y2 = Y2, T = T){
@@ -149,7 +151,7 @@ JointNC = function(Y1 = Y1, Y2 = Y2, T = T){
   beta_1.hat            = beta_1.tilde.hat - beta_2.tilde.hat # de-biased treatment effect on Y1.
   
   # Sandwich estimation of the variance
-  U.hat1                = rbind((T * Y1) / sum(T) - e.beta_1.tilde.hat * ((1 - T) * Y1) / sum(1-T), (T * Y2) / sum(T) - e.beta_2.tilde.hat * ((1 - T) * Y2) / sum(1-T)  )
+  U.hat1                = rbind((T * Y1) / sum(T) - e.beta_1.tilde.hat * ((1 - T) * Y1) / sum(1-T), (T * Y2) / sum(T) - e.beta_2.tilde.hat * ((1 - T) * Y2) / sum(1-T) )
   drond_U.hat1          = matrix(NA, nrow = 2, ncol = 2)
   drond_U.hat1[1,]      = rbind(sum(- e.beta_1.tilde.hat * sum((1 - T) * Y1) / sum(1-T)), 0) / n
   drond_U.hat1[2,]      = rbind(0, - e.beta_2.tilde.hat * sum((1 - T) * Y2) / sum(1-T)) / n
@@ -171,7 +173,7 @@ JointNC = function(Y1 = Y1, Y2 = Y2, T = T){
         Var_theta.hat1  = 1 / n * solve(drond_U.hat1) %*% (U.hat1 %*% t(U.hat1) / n) %*% t(solve(drond_U.hat1))
       }}}
   
-  return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat1[1,1] + Var_theta.hat1[2,2] - 2*Var_theta.hat1[2,1])))
+  return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat1[1,1] + Var_theta.hat1[2,2] - 2 * Var_theta.hat1[2,1])))
 }
 
 
@@ -206,7 +208,7 @@ StratificationMH = function(Y1 = Y1, T = T, W = NULL){
       pl1           = nl0 / nl 
       pl0           = nl1 / nl
       Num_Y1        = sum(Y1[(W == l)&(T == 1)]) # number of treated cases in the stratum
-      Denom_Y1      = sum(Y1[(W == l)&(T == 0)]) # number of un-treated cases in the stratum
+      Denom_Y1      = sum(Y1[(W == l)&(T == 0)]) # number of untreated cases in the stratum
       res           = rbind(res, cbind(Num_Y1 = Num_Y1, Denom_Y1 = Denom_Y1, pl = pl, pl1 = pl1, pl0 = pl0))
     }
     res             = as.data.frame(res)
@@ -219,9 +221,9 @@ StratificationMH = function(Y1 = Y1, T = T, W = NULL){
     beta_1.hat      = log(sum(res$Num_Y1 * res$pl1) / sum(res$Denom_Y1 * res$pl0)) # estimated treatment effect on the primary outcome via stratification on W with MH weights
     
     # Sandwich estimation of the variance
-    U.hat           = res$pl * (res$Num_Y1 - exp(beta_1.hat) * res$Denom_Y1)
+    U.hat           = res$pl1 * res$Num_Y1 - exp(beta_1.hat) * res$pl0 * res$Denom_Y1
     bar_U.hat       = mean(U.hat)
-    drond_U.hat     = - exp(beta_1.hat) * sum(res$Denom_Y1 * res$pl) / K
+    drond_U.hat     = - exp(beta_1.hat) * sum(res$Denom_Y1 * res$pl0) / K
     Var_theta.hat   = 1 / (K) * solve(drond_U.hat) %*% (sum((U.hat)^2) / (K - 1))  %*% t(solve(drond_U.hat))
     
     return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat)))
@@ -233,12 +235,12 @@ StratificationMH = function(Y1 = Y1, T = T, W = NULL){
 
 ## Arguments:
 # Y1: outcome of interest, assumed to be binary.
-# T: treatment of interest, assumed to be binary. A log-link is used to relate Y1 and T.
 # Y2: secondary outcome.
+# T: treatment of interest, assumed to be binary. A log-link is used to relate Y1 and T and Y2 and T.
 # W: categorical covariates used for adjustment.
 
 ## Values:
-# beta_1.hat: final estimate of the treatment effect.
+# beta_1.hat: final estimate of the treatment effect on Y1.
 # se.beta_1.hat: estimate of the standard deviation of beta_1.hat.
 
 JointStratificationMH = function(Y1 = Y1, Y2 = Y2, T = T, W = NULL){
@@ -256,14 +258,14 @@ JointStratificationMH = function(Y1 = Y1, Y2 = Y2, T = T, W = NULL){
     for(l in levelsW){
       nl              = sum(W == l) # number of individuals in the stratum
       nl1             = sum((W == l)&(T == 1)) # number of individuals who received the treatment in the stratum
-      nl0             = sum((W == l)&(T == 0)) # number of individuals who received the treatment in the stratum
+      nl0             = sum((W == l)&(T == 0)) # number of individuals who did not received the treatment in the stratum
       pl              = nl0 * nl1 / nl
       pl1             = nl0 / nl 
       pl0             = nl1 / nl
       Num_Y1          = sum(Y1[(W == l)&(T == 1)]) # number of treated cases in the stratum, for the primary outcome
       Denom_Y1        = sum(Y1[(W == l)&(T == 0)]) # number of untreated cases in the stratum, for the primary outcome
       Num_Y2          = sum(Y2[(W == l)&(T == 1)]) # number of treated cases in the stratum, for the secondary outcome
-      Denom_Y2        = sum(Y2[(W == l)&(T == 0)]) # number of treated cases in the stratum, for the secondary outcome
+      Denom_Y2        = sum(Y2[(W == l)&(T == 0)]) # number of untreated cases in the stratum, for the secondary outcome
       res             = rbind(res, cbind(Num_Y1 = Num_Y1, Denom_Y1 = Denom_Y1, Num_Y2 = Num_Y2, Denom_Y2 = Denom_Y2, pl = pl, pl1 = pl1, pl0 = pl0))
     }
     res               = as.data.frame(res)
@@ -275,16 +277,28 @@ JointStratificationMH = function(Y1 = Y1, Y2 = Y2, T = T, W = NULL){
     }
     beta_1.tilde.hat  = log(sum(res$Num_Y1 * res$pl1) / sum(res$Denom_Y1 * res$pl0)) # estimated treatment effect on the primary outcome via stratification on W with MH weights
     beta_2.tilde.hat  = log(sum(res$Num_Y2 * res$pl1) / sum(res$Denom_Y2 * res$pl0)) # estimated treatment effect on the secondary outcome via stratification on W with MH weights
-    beta_1.hat        = beta_1.tilde.hat - beta_2.tilde.hat # using the estimated non-null treatment effect on the secondary outcome to reduce confounding bias in the estimated treatment effect on the primary outcome
+    # using the estimated non-zero treatment effect on the secondary outcome to reduce confounding bias in the estimated treatment effect on the primary outcome
+    beta_1.hat        = beta_1.tilde.hat - beta_2.tilde.hat # de-biased treatment effect on Y1.
     
-    # Sandwich variance estimation
-    U.hat             = rbind(res$pl * (res$Num_Y1 - exp(beta_1.tilde.hat) * res$Denom_Y1), res$pl * (res$Num_Y2 - exp(beta_2.tilde.hat) * res$Denom_Y2))
-    bar_U.hat         = rowMeans(U.hat)
-    drond_U.hat       = matrix(NA, nrow = 2, ncol = 2)
-    drond_U.hat[1,]   = rbind(- exp(beta_1.tilde.hat) * sum(res$Denom_Y1 * res$pl), 0) / K
-    drond_U.hat[2,]   = rbind(0, - exp(beta_2.tilde.hat) * sum(res$Denom_Y2 * res$pl)) / K
-    Var_theta.hat     = 1 / (K) * solve(drond_U.hat) %*% ((U.hat - bar_U.hat) %*% t(U.hat - bar_U.hat) / (K - 1)) %*% t(solve(drond_U.hat))
-    
+    if(beta_1.tilde.hat == -Inf){
+        print("No treated cases")
+        beta_1.hat        = NA
+        Var_theta.hat    = matrix(NA, nrow = 2, ncol = 2)
+    }else{
+      if(beta_1.tilde.hat == Inf){
+          print("No untreated cases")
+          beta_1.hat      = NA
+          Var_theta.hat  = matrix(NA, nrow = 2, ncol = 2)
+      }else{
+          # Sandwich variance estimation
+          U.hat             = rbind(res$pl1 * res$Num_Y1 - exp(beta_1.tilde.hat) * res$pl0 * res$Denom_Y1, res$pl1 * res$Num_Y2 - exp(beta_2.tilde.hat) * res$pl0 * res$Denom_Y2)
+          bar_U.hat         = rowMeans(U.hat)
+          drond_U.hat       = matrix(NA, nrow = 2, ncol = 2)
+          drond_U.hat[1,]   = rbind(- exp(beta_1.tilde.hat) * sum(res$Denom_Y1 * res$pl0), 0) / K
+          drond_U.hat[2,]   = rbind(0, - exp(beta_2.tilde.hat) * sum(res$Denom_Y2 * res$pl0)) / K
+          Var_theta.hat     = 1 / (K) * solve(drond_U.hat) %*% ((U.hat - bar_U.hat) %*% t(U.hat - bar_U.hat) / (K - 1)) %*% t(solve(drond_U.hat))
+        }}
+        
     return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat[1,1] + Var_theta.hat[2,2] - 2*Var_theta.hat[1,2]), bar_U.hat = bar_U.hat ))
   }
 }

@@ -1,7 +1,7 @@
-## Implementation of the simulation for the non-randomized setting when the assumption of no treatment effect on the non-targeted types is violated (simulation of WebSection E.2.1.2).
+## Implementation of the simulation for the non-randomized setting when the assumption of no treatment effect on the non-targeted types is violated (simulation of WebSection E.3.1.2).
 # We only consider n = 5,000 and 10,000.
-# Part 1, for beta2j = nu.
-# Code for beta2j = - nu is given in Simul_NonRandomized_TreatmentEffectY2_Part2.R
+# Part 1, for beta2j = nu_1.
+# Code for beta2j = nu_2 and nu_3 are given in Simul_Randomized_TreatmentEffectY2_Part2_revision.R and Simul_Randomized_TreatmentEffectY2_Part3_revision.R
 
 ## Variables:
 # Y1^(k): infection with HPV type k, targeted by the vaccine. We have Y1i^(k) = 1 if the ith person is infected with this type, and 0 otherwise.
@@ -55,7 +55,8 @@ l               = length(pY2)
 beta_1.16       = - 0.73 # Effect on Y1^(16). Value taken from the Costa Rica Vaccine Trial data
 beta_1.18       = - 0.86 # Effect on Y1^(18).
 beta_1          = c(beta_1.16, beta_1.18)
-beta_2          = c(0.01, -0.05, -0.32, -0.17,  0.05,  0.07,  0.15,  0.09,  0.19,  0.08, -0.06,  0.12, -0.03, -0.07, -0.16,  0.00, -0.02, -0.18,  0.04, -0.12) # The beta2j, equal to nu. We assume that the vaccine has an effect on HPV viruses that are not targeted by the vaccine.
+beta_2          = c(0.01, -0.03, -0.32, -0.17, 0.04, 0.07, 0.15, 0.09, 0.18, 0.08, -0.06, 0.12, -0.02, -0.07, -0.16, -0.01, -0.03, -0.18, 0.04, -0.13) # We assume that the vaccine has an effect on HPV viruses that are not targeted by the vaccine.
+# The beta2j are taken from the CVT (with incident + prevalent infections); for each non targeted type we used the estimated effect of the vaccine.
 
 # W = (WAge, WRegion)
 # We consider 13 age groups for WAge
@@ -76,9 +77,9 @@ PwAge           = PwAge / rowSums(PwAge)
 q_WAge    = 1 / 10 * c(0.01, 0.1) # Effect of WAge on the targeted types
 q_WRegion = rbind(c(-1.45, 0.06), c(0, -0.26), c(0.2, 0.5))       # Effect of WRegion on the targeted types         
 s_WAge    = c(0.0035, 0.0026, 0.0071, 0.0156, 0.0004, 0.0090, 0.0073, 0.0078, 0.0054, 0.0015, 0.0082, 0.0036, 0.0085, 0.0052, 
-                    0.0077, 0.0120, 0.0112, 0.0143, 0.0011, 0.0019) # Effect of WAge on each of the non targeted HPV types.
+              0.0077, 0.0120, 0.0112, 0.0143, 0.0011, 0.0019) # Effect of WAge on each of the non targeted HPV types.
 s_WRegion = c(-0.2504, -0.1048, -0.0994, -0.3612, -0.1164, -0.2218, -0.2030, -0.0325, 0.1126,  0.3296, -0.1547,  0.3212, 
-                    -0.2316, 0.1313,  0.5098, -0.0070, -0.1339, -0.0015,  0.3554, -0.2277) # Effect of WRegion on each of the non targeted HPV types.
+              -0.2316, 0.1313,  0.5098, -0.0070, -0.1339, -0.0015,  0.3554, -0.2277) # Effect of WRegion on each of the non targeted HPV types.
 
 # A can take 3 different values: a_low, a_medium and a_high. The associated probabilities depends on the value of W
 # The following probabilities will be "normalized" so that P(A = a_low | W = w) + P(A = a_medium | W = w) 
@@ -93,10 +94,10 @@ Palow     = Palow / Ptot
 
 # Number of data sets replications
 Nreplic   = 10^4
-set.seed(1234)
 
 # Function to run for each scenario/configuration
 Onerun = function(p){
+  set.seed(1234)
   
   # Considered scenario
   pY1             = PARAM[p, 1:2]
@@ -375,7 +376,8 @@ library(xtable)
 # with more readable facets names
 RECAP$pY1 = factor(RECAP$pY1, labels = c("Low", "Medium", "High"))
 RECAP$A = factor(RECAP$A, labels = c("Small", "Medium", "Large"))
-plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot() + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A)# + scale_y_continuous(sec.axis = sec_axis(~ . , name = "Risk of infections with targeted types 16 and 18", breaks = NULL, labels = NULL)) # facet_grid(pY1~A, labeller = label_parsed)
+RECAP$Approach = factor(RECAP$Approach,levels(RECAP$Approach)[c(3,1,2,4)])
+plot = ggplot(RECAP, aes(x = n, y = beta_1.hat, color = Approach)) + geom_boxplot(coef = NULL) + geom_hline(aes(yintercept = beta_1.true)) + theme_light() + theme(plot.title = element_text(size = 11), axis.title = element_text(size = 11), axis.text = element_text(size = 11), legend.text = element_text(size = 11), strip.background = element_rect(color="black", fill="white", size = 0.5, linetype="solid"), strip.text.x = element_text(size = 11, color = "black"), strip.text.y = element_text(size = 11, color = "black")) + ylab((expression(hat(beta[1]^C) ))) + facet_grid(pY1~A, labeller = label_parsed, scales = "free_y")# + scale_y_continuous(sec.axis = sec_axis(~ . , name = "Risk of infections with targeted types 16 and 18", breaks = NULL, labels = NULL)) # facet_grid(pY1~A, labeller = label_parsed)
 
 labelT = "Variance of the unmeasured confounder A"
 labelR = "Risk of infections with targeted types 16 and 18"
@@ -554,12 +556,12 @@ for(i in 1:nrow(PARAM)){
   eff_MH_JointNC    = MSE.MH / MSE.JointNC
   eff_MH_JointReg   = MSE.MH / MSE.JointReg
   
-  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.NaiveJoint = mean.JointNC - beta_1,  bias.JointCov = mean.JointReg - beta_1, empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.jointCov = sd.JointReg, sandwich_sd.jointCov = sandwich_sd.JointReg,  CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.NaiveJoint = cov.JointNC,  CIcov.JointCov = cov.JointReg, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
+  Eff = rbind(Eff, c(eff_beta1_JointMH = eff_MH_JointMH, eff_beta1_JointNC = eff_MH_JointNC, eff_beta1_JointReg = eff_MH_JointReg, bias.MH = mean.MH - beta_1, bias.JointMH = mean.JointMH - beta_1,  bias.JointNC = mean.JointNC - beta_1,  bias.JointReg = mean.JointReg - beta_1, empir_sd.MH = sd.MH, sandwich_sd.MH = sandwich_sd.MH, empir_sd.JointMH = sd.JointMH, sandwich_sd.JointMH = sandwich_sd.JointMH, empir_sd.JointNC = sd.JointNC, sandwich_sd.JointNC = sandwich_sd.JointNC, empir_sd.JointReg = sd.JointReg, sandwich_sd.JointReg = sandwich_sd.JointReg,  CIcov.MH = cov.MH, CIcov.JointMH = cov.JointMH, CIcov.JointNC = cov.JointNC,  CIcov.JointReg = cov.JointReg, n = as.character(RECAP1[1,]$n), pY1 = as.character(RECAP1[1,]$pY1), A =  as.character(RECAP1[1,]$A), beta_1 = beta_1, corr = RECAP1$corrY1cY2s[1] ) )
 }
 
 Eff = as.data.frame(Eff)
 Eff = cbind(Eff, beta_2.true = c(BETA_2))
-ColNames = colnames(Eff[,c(1:20, 23:24)])
+ColNames = colnames(Eff[,c(1:20, 23:25)])
 Eff[ColNames] = sapply(Eff[ColNames], as.numeric)
 # print(xtable(Eff, type = "latex", digits = 3), include.rownames=FALSE) # LaTeX table
 beta_1          = c(beta_1.16, beta_1.18)
@@ -568,6 +570,5 @@ save(Eff, file = myfile)
 Eff[ColNames] = round(Eff[ColNames], digits = 3)
 Eff = Eff[which(Eff$n == 10000),] # save only the scenarios with n = 10,000
 write.csv(Eff, file = paste0("Eff_NonRandomized_TreatmentEffectY2_Part1-beta1", paste(round(beta_1, digits = 3), collapse = "_"), ".csv")) # save as csv
-
 
 

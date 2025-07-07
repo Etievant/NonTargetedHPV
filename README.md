@@ -1,6 +1,6 @@
 # NonTargetedHPV
 
-Replication of the simulation studies in "Increasing efficiency and reducing bias when assessing HPV vaccination efficacy by using non-targeted HPV strains", by Etievant, Sampson and Gail. The methods described in the article are implemented in the file `EstimationFunctions.R`.
+Replication of the simulation studies in "Increasing efficiency and reducing bias when assessing HPV vaccination efficacy by using non-targeted HPV strains", by Etievant, Sampson and Gail (Biometrics, 2023). The methods described in the article are implemented in the file `EstimationFunctions.R`.
 
 ### Required packages 
 

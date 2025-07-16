@@ -144,36 +144,42 @@ JointNC = function(Y1 = Y1, Y2 = Y2, T = T){
   n                     = length(Y1) # sample size
   
   # Parameter estimation
-  e.beta_1.tilde.hat    = sum(T * Y1) / sum(T) * sum(1 - T) / sum((1 - T) * Y1) # estimation of the treatment effect on Y1.
-  beta_1.tilde.hat      = log(e.beta_1.tilde.hat) 
-  e.beta_2.tilde.hat    = sum(T * Y2) / sum(T) * sum(1 - T) / sum((1 - T) * Y2) # estimation of the treatment effect on Y2.
-  beta_2.tilde.hat      = log(e.beta_2.tilde.hat) 
-  beta_1.hat            = beta_1.tilde.hat - beta_2.tilde.hat # de-biased treatment effect on Y1.
+  e.mu_1.tilde.hat    = sum((1 - T) * Y1) / sum(1-T) # estimation of the intercept.
+  e.beta_1.tilde.hat  = sum(T * Y1) / sum(T) / e.mu_1.tilde.hat # naive estimation of the treatment effect on Y1.
+  e.mu_2.tilde.hat    = sum((1 - T) * Y2) / sum(1-T) # estimation of the intercept.
+  e.beta_2.tilde.hat  = sum(T * Y2) / sum(T) / e.mu_2.tilde.hat # naive estimation of the treatment effect on Y2.
+  beta_1.tilde.hat    = log(e.beta_1.tilde.hat) 
+  beta_2.tilde.hat    = log(e.beta_2.tilde.hat) 
+  beta_1.hat          = beta_1.tilde.hat - beta_2.tilde.hat # ``de-biased'' treatment effect on Y1.
   
   # Sandwich estimation of the variance
-  U.hat1                = rbind((T * Y1) / sum(T) - e.beta_1.tilde.hat * ((1 - T) * Y1) / sum(1-T), (T * Y2) / sum(T) - e.beta_2.tilde.hat * ((1 - T) * Y2) / sum(1-T) )
-  drond_U.hat1          = matrix(NA, nrow = 2, ncol = 2)
-  drond_U.hat1[1,]      = rbind(sum(- e.beta_1.tilde.hat * sum((1 - T) * Y1) / sum(1-T)), 0) / n
-  drond_U.hat1[2,]      = rbind(0, - e.beta_2.tilde.hat * sum((1 - T) * Y2) / sum(1-T)) / n
+  p1.tilde.hat      = e.mu_1.tilde.hat * (e.beta_1.tilde.hat * T + 1 - T)
+  p2.tilde.hat      = e.mu_2.tilde.hat * (e.beta_2.tilde.hat * T + 1 - T)
+  U.hat             = rbind((Y1 - p1.tilde.hat) / (1 - p1.tilde.hat), T * (Y1 - p1.tilde.hat) / (1 - p1.tilde.hat), Y2 - p2.tilde.hat, T * (Y2 - p2.tilde.hat))
+  drond_U.hat       = matrix(NA, nrow = 4, ncol = 4)
+  drond_U.hat[1,]   = rbind(sum(p1.tilde.hat * (Y1 - 1) / (1 - p1.tilde.hat)^2), sum(T * p1.tilde.hat * (Y1 - 1) / (1 - p1.tilde.hat)^2), 0, 0) / n
+  drond_U.hat[2,]   = rbind(sum(T * p1.tilde.hat * (Y1 - 1) / (1 - p1.tilde.hat)^2), sum(T^2 * p1.tilde.hat * (Y1 - 1) / (1 - p1.tilde.hat)^2), 0, 0) / n
+  drond_U.hat[3,]   = rbind(0, 0, -sum(p2.tilde.hat), -sum(T * p2.tilde.hat)) / n
+  drond_U.hat[4,]   = rbind(0, 0, -sum(T * p2.tilde.hat), -sum(T * p2.tilde.hat)) / n
   if(is.na(e.beta_1.tilde.hat)){
     print("No untreated cases")
-    beta_1.hat          = NA
-    Var_theta.hat1      = matrix(NA, nrow = 2, ncol = 2)
+    beta_1.hat      = NA
+    Var_theta.hat   = matrix(NA, nrow = 4, ncol = 4)
   }else{
     if(e.beta_1.tilde.hat == 0){
       print("No treated cases")
-      beta_1.hat        = NA
-      Var_theta.hat1    = matrix(NA, nrow = 2, ncol = 2)
+      beta_1.hat    = NA
+      Var_theta.hat = matrix(NA, nrow = 4, ncol = 4)
     }else{
       if(e.beta_1.tilde.hat == Inf){
         print("No untreated cases")
-        beta_1.hat      = NA
-        Var_theta.hat1  = matrix(NA, nrow = 2, ncol = 2)
+        beta_1.hat    = NA
+        Var_theta.hat = matrix(NA, nrow = 4, ncol = 4)
       }else{
-        Var_theta.hat1  = 1 / n * solve(drond_U.hat1) %*% (U.hat1 %*% t(U.hat1) / n) %*% t(solve(drond_U.hat1))
+        Var_theta.hat = 1 / n * solve(drond_U.hat) %*% (U.hat %*% t(U.hat) / n) %*% t(solve(drond_U.hat))
       }}}
   
-  return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat1[1,1] + Var_theta.hat1[2,2] - 2 * Var_theta.hat1[2,1])))
+  return(list(beta_1.hat = beta_1.hat, se.beta_1.hat = sqrt(Var_theta.hat[2,2] + Var_theta.hat[4,4] - 2 * Var_theta.hat[4,2])))
 }
 
 
